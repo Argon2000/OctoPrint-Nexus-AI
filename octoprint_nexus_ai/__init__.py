@@ -76,16 +76,17 @@ class NexusAIPlugin(octoprint.plugin.SettingsPlugin,
             if len(ip_address)>2:
                 try:
                     response = requests.post(request_url, files=upload_img, timeout=5)
-                    self._logger.info(response.text)
+                    # self._logger.info(response.text)
                     result_json = json.loads(response.text)
-                    self._logger.info("Fiberpunk Nexus AI result count:")
-                    self._logger.info(result_json["result_count"])
+                    # self._logger.info("Fiberpunk Nexus AI result count:")
+                    # self._logger.info(result_json["result_count"])
                     if result_json["result_count"]>0:
                         results = result_json["result"]
                         for result in results:
                             confidence = result["confidence"]
                             pause_on_confidence = self._settings.get_float(["pause_on_confidence"])
                             if confidence * 100 > pause_on_confidence:
+                                self._logger.info("Fiberpunk Nexus AI Failure detected, PAUSING")
                                 self.pause = True
                         download_file_name = os.path.join(self.get_plugin_data_folder(), "reference.jpg")
                         # self._logger.info("Fiberpunk Nexus AI download file name:")
@@ -135,7 +136,7 @@ class NexusAIPlugin(octoprint.plugin.SettingsPlugin,
             "reference_image_timestamp": "",
             "nexus_ai_ip":"",
             "request_interval_time":4,
-            "pause_on_confidence": 40,
+            "pause_on_confidence": 100,
         }
 
     # ~~ AssetPlugin mixin
@@ -181,7 +182,7 @@ class NexusAIPlugin(octoprint.plugin.SettingsPlugin,
             }
         }
 
-    def pause_on_failure(self, comm_instance, phase, cmd, cmd_type, gcode):
+    def pause_on_failure(self, comm_instance, phase, cmd, cmd_type, gcode, subcode=None, tags=None, *args, **kwargs):
         if (self.repeated_timer == None) or (self.pause == False):
             return
 
