@@ -38,12 +38,12 @@ class NexusAIPlugin(octoprint.plugin.SettingsPlugin,
     # ~~ EventHandlerPlugin mixin
 
     def on_event(self, event, payload):
-        if (event == Events.PRINT_STARTED) or (event == Events.PRINT_PAUSED):
-            self._logger.info("Fiberpunk: Print job started! Interval time:{}".format(self._settings.get_float(["request_interval_time"])))
+        if (event == Events.PRINT_STARTED) or (event == Events.PRINT_RESUMED):
+            self._logger.info("Fiberpunk: Print job started/resumed! Interval time:{}".format(self._settings.get_float(["request_interval_time"])))
             self.repeated_timer = RepeatedTimer(self._settings.get_float(["request_interval_time"]), self._timer_task)
             self.repeated_timer.start()
             self.pause = False
-        elif (event == Events.PRINT_CANCELLED) or (event == Events.PRINT_DONE) or (event == Events.PRINT_FAILED):
+        elif (event == Events.PRINT_CANCELLED) or (event == Events.PRINT_DONE) or (event == Events.PRINT_FAILED) or (event == Events.PRINT_PAUSED):
             self._logger.info("Fiberpunk: Print job stopped!")
             self.repeated_timer.cancel()
             self.repeated_timer = None
