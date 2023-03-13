@@ -25,5 +25,20 @@
                 <option value=20.0>20.0</option>
             </select>
         </div>
+        <label class="control-label">{{ _('Pause on confidence (100 = OFF)') }}</label>
+		<div class="controls">
+            <select data-bind="value: settingsViewModel.settings.plugins.nexus_ai.pause_on_confidence">
+                <option value=10.0>10</option>
+                <option value=20.0>20</option>
+                <option value=30.0>30</option>
+                <option value=40.0>40</option>
+                <option value=50.0>50</option>
+                <option value=60.0>60</option>
+                <option value=70.0>70</option>
+                <option value=80.0>80</option>
+                <option value=90.0>90</option>
+                <option value=100.0>100</option>
+            </select>
+        </div>
 	</div>
 </form>

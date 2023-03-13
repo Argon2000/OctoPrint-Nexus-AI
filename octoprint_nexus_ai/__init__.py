@@ -24,6 +24,7 @@ class NexusAIPlugin(octoprint.plugin.SettingsPlugin,
     def __init__(self):
         self.repeated_timer = None
         self.refer_result = None  #nexus_ai's refer result
+        self.pause = False
         # self.octotext_email = None
 
     def _timer_task(self):
@@ -37,13 +38,16 @@ class NexusAIPlugin(octoprint.plugin.SettingsPlugin,
     # ~~ EventHandlerPlugin mixin
 
     def on_event(self, event, payload):
-        if event == Events.PRINT_STARTED:
-            self._logger.info("Fiberpunk: print job started!!interval tiime:{}".format(self._settings.get_float(["request_interval_time"])))
+        if (event == Events.PRINT_STARTED) or (event == Events.PRINT_PAUSED):
+            self._logger.info("Fiberpunk: Print job started! Interval time:{}".format(self._settings.get_float(["request_interval_time"])))
             self.repeated_timer = RepeatedTimer(self._settings.get_float(["request_interval_time"]), self._timer_task)
             self.repeated_timer.start()
+            self.pause = False
         elif (event == Events.PRINT_CANCELLED) or (event == Events.PRINT_DONE) or (event == Events.PRINT_FAILED):
-            self._logger.info("Fiberpunk: print job stop!!")
+            self._logger.info("Fiberpunk: Print job stopped!")
             self.repeated_timer.cancel()
+            self.repeated_timer = None
+            self.pause = False
 
     # ~~ SimpleApiPlugin mixin
 
@@ -51,7 +55,7 @@ class NexusAIPlugin(octoprint.plugin.SettingsPlugin,
         return dict(
             take_snapshot=[]
         )
-    
+
     def nexus_ai_request(self):
         relative_url = self.take_snapshot("reference.jpg")
         if "reference_image" in relative_url:
@@ -77,6 +81,12 @@ class NexusAIPlugin(octoprint.plugin.SettingsPlugin,
                     self._logger.info("Fiberpunk Nexus AI result count:")
                     self._logger.info(result_json["result_count"])
                     if result_json["result_count"]>0:
+                        results = result_json["result"]
+                        for result in results:
+                            confidence = result["confidence"]
+                            pause_on_confidence = self._settings.get_float(["pause_on_confidence"])
+                            if confidence * 100 > pause_on_confidence:
+                                self.pause = True
                         download_file_name = os.path.join(self.get_plugin_data_folder(), "reference.jpg")
                         # self._logger.info("Fiberpunk Nexus AI download file name:")
                         # self._logger.info(download_file_name)
@@ -85,11 +95,11 @@ class NexusAIPlugin(octoprint.plugin.SettingsPlugin,
                             with open(download_file_name, "wb") as f:
                                 f.write(response.content)
 
-                    
+
                 except requests.exceptions.ConnectionError:
                     self._logger.info("Fiberpunk Nexus AI : requests connect error")
                 except:
-                    self._logger.info("Fiberpunk Nexus AI : unknow error")     
+                    self._logger.info("Fiberpunk Nexus AI : unknow error")
             return relative_url
 
     def on_api_command(self, command, data):
@@ -125,6 +135,7 @@ class NexusAIPlugin(octoprint.plugin.SettingsPlugin,
             "reference_image_timestamp": "",
             "nexus_ai_ip":"",
             "request_interval_time":4,
+            "pause_on_confidence": 40,
         }
 
     # ~~ AssetPlugin mixin
@@ -170,9 +181,18 @@ class NexusAIPlugin(octoprint.plugin.SettingsPlugin,
             }
         }
 
+    def pause_on_failure(self, comm_instance, phase, cmd, cmd_type, gcode):
+        if (self.repeated_timer == None) or (self.pause == False):
+            return
+
+        self.pause = False
+        tags = set()
+
+        comm_instance.setPause(True, tags=tags)
+
 
 __plugin_name__ = "Nexus AI"
-__plugin_pythoncompat__ = ">=3.6,<4" 
+__plugin_pythoncompat__ = ">=3.6,<4"
 
 
 def __plugin_load__():
@@ -183,6 +203,6 @@ def __plugin_load__():
     __plugin_hooks__ = {
         "octoprint.plugin.softwareupdate.check_config": __plugin_implementation__.get_update_information,
         "octoprint.server.http.routes": __plugin_implementation__.route_hook,
-        
+        "octoprint.comm.protocol.gcode.queuing": __plugin_implementation__.pause_on_failure
     }
 
